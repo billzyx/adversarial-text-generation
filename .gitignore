@@ -1,0 +1,15 @@
+.idea
+ADReSS-IS2020-data
+question_generation
+*.pdf
+*.csv
+datasets
+*.png
+Pitt
+result
+*.txt
+*.json
+data
+external_lib
+*.out
+ADReSSo21

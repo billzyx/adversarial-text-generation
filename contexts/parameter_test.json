@@ -1,0 +1,8 @@
+{
+  "empty": "",
+  "ask_5_question_answer": "Ask 5 questions about the above picture description and answer them.",
+  "summary_picture": "Summarize the above picture description. ",
+  "discuss_anything": "Discuss anything notable in the above text. Include as much detail as possible.",
+  "attention": "Attention to Detail: Assess the level of detail provided in the description, noting the extent to which the speaker focuses on specific actions, objects, and scenes.",
+  "vocabulary": "Vocabulary: Assess the descriptive vocabulary used in the picture description to determine if it is rich and evocative."
+}
