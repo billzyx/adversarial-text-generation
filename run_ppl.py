@@ -505,9 +505,11 @@ def instruction_train_single_dict(postfix_instruction_dict, prefix_context, save
 
 
 def main():
+    # Example human defined instruction
     instruction = "Discuss anything notable in the above text. Include as much detail as possible."
     standard_train(postfix_instruction=instruction)
 
+    # Difference-based instruction
     question_generation_key = 'diff'
     print(question_generation_key)
     generate_diff(question_generation_key=question_generation_key)
