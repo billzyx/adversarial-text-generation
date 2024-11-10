@@ -1,5 +1,6 @@
 # Adversarial Text Generation using Large Language Models for Dementia Detection (EMNLP 24)
 
+[Paper Link](https://aclanthology.org/2024.emnlp-main.1222/)
 
 ## Usage Guide
 
