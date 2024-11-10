@@ -199,9 +199,9 @@ def get_question_key(question_str):
     return question_str[:200]
 
 
-def load_question_dict(question_generation_key, sample_size, sample_rounds, model_name_for_question=model_name):
+def load_question_dict(question_generation_key, model_name_for_question=model_name):
     question_json_path = os.path.join(question_dir, model_name_for_question, question_generation_key,
-                                      'aspect_instruction_{}_{}.json'.format(sample_size, sample_rounds))
+                                      'aspect_instruction.json')
     if not os.path.isfile(question_json_path):
         return {}
     with open(question_json_path, 'r', encoding='utf-8') as f:
@@ -249,54 +249,43 @@ def standard_train(prefix_context='', postfix_instruction='', save_tag='default'
     show_single(postfix_context, prefix_context, save_dir=result_instruction_dir, save_tag=save_tag)
 
 
-def generate_diff(sample_size=4, sample_rounds=1, question_generation_key='diff'):
+def generate_diff(question_generation_key):
     train_dataset = [data for data in dataloaders.load_dataset_easy(train_data_id)]
 
     train_dataset_hc = [data for data in train_dataset if data['label'] == 0]
     train_dataset_ad = [data for data in train_dataset if data['label'] == 1]
 
-    diff_list = []
+    train_dataset_ad_curr = train_dataset_ad
+    train_dataset_hc_curr = train_dataset_hc
 
-    for round_num in range(sample_rounds):
-        if sample_size == 'all':
-            train_dataset_ad_curr = train_dataset_ad
-            train_dataset_hc_curr = train_dataset_hc
-        else:
-            train_dataset_hc_curr = random.sample(train_dataset_hc, sample_size)
-            train_dataset_ad_curr = random.sample(train_dataset_ad, sample_size)
+    diff_dataset = []
+    for data_hc in train_dataset_hc_curr:
+        for data_ad in train_dataset_ad_curr:
+            text = "{}Text 1: {}\nText 2: {}\n".format(model.user_prefix, data_hc['text'], data_ad['text'])
+            diff_dataset.append({'text': text})
+    print(len(diff_dataset))
 
-        diff_dataset = []
-        for data_hc in train_dataset_hc_curr:
-            for data_ad in train_dataset_ad_curr:
-                text = "{}Text 1: {}\nText 2: {}\n".format(model.user_prefix, data_hc['text'], data_ad['text'])
-                diff_dataset.append({'text': text})
-        print(len(diff_dataset))
+    diff_prompt = "Find out the difference between text 1 and text 2. Discuss the differences in a list of aspects."
+    postfix_instruction = '\n' + diff_prompt + model.user_assistant_infix
+    print(postfix_instruction)
 
-        diff_prompt = load_human_defined_contexts_dict("question_generation_diff")[question_generation_key]
-        postfix_instruction = '\n' + diff_prompt + model.user_assistant_infix
-        print(postfix_instruction)
+    postfix_content_list = model.regular_generate(diff_dataset, token_length=1000,
+                                                  postfix_instruction=postfix_instruction, )
 
-        postfix_content_list = model.regular_generate(diff_dataset, token_length=1000,
-                                                      postfix_instruction=postfix_instruction, )
-        diff_list.extend(postfix_content_list)
-
-    diff_list = list(set(diff_list))
     diff_dict = {
-        'diff_list': diff_list,
-        'sample_size': sample_size,
-        'sample_rounds': sample_rounds,
+        'diff_list': postfix_content_list,
     }
     save_path = os.path.join(
-        question_dir, model_name, question_generation_key, 'diff_{}_{}.json'.format(sample_size, sample_rounds)
+        question_dir, model_name, question_generation_key, 'diff.json'
     )
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
     with open(save_path, "w", encoding='utf-8') as json_file:
         json.dump(diff_dict, json_file)
 
 
-def obtain_aspects(sample_size=4, sample_rounds=1, question_generation_key='diff'):
+def obtain_aspects(question_generation_key='diff'):
     save_path = os.path.join(
-        question_dir, model_name, question_generation_key, 'diff_{}_{}.json'.format(sample_size, sample_rounds)
+        question_dir, model_name, question_generation_key, 'diff.json'
     )
     with open(save_path, "r", encoding='utf-8') as json_file:
         diff_dict = json.load(json_file)
@@ -324,7 +313,7 @@ def obtain_aspects(sample_size=4, sample_rounds=1, question_generation_key='diff
     aspect_detail_dict = dict(sorted(aspect_detail_dict.items(), key=lambda item: item[1]['count'], reverse=True))
 
     save_path = os.path.join(
-        question_dir, model_name, question_generation_key, 'aspect_{}_{}.json'.format(sample_size, sample_rounds)
+        question_dir, model_name, question_generation_key, 'aspect.json'
     )
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
     with open(save_path, "w", encoding='utf-8') as json_file:
@@ -335,10 +324,9 @@ def process_detail(detail):
     return detail.replace('Text 1', 'Text').replace('Text 2', 'Text')
 
 
-def generate_aspect_instruction(sample_size=4, sample_rounds=1, question_generation_key='diff',
-                                aspect_num_range=(3, 3), top_k_aspects=10):
+def generate_aspect_instruction(question_generation_key='diff', top_k_aspects=10):
     save_path = os.path.join(
-        question_dir, model_name, question_generation_key, 'aspect_{}_{}.json'.format(sample_size, sample_rounds)
+        question_dir, model_name, question_generation_key, 'aspect.json'
     )
     with open(save_path, "r", encoding='utf-8') as json_file:
         aspects_count_dict = json.load(json_file)
@@ -374,7 +362,7 @@ def generate_aspect_instruction(sample_size=4, sample_rounds=1, question_generat
 
     save_path = os.path.join(
         question_dir, model_name, question_generation_key,
-        'aspect_instruction_{}_{}.json'.format(sample_size, sample_rounds)
+        'aspect_instruction.json'
     )
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
     with open(save_path, "w", encoding='utf-8') as json_file:
@@ -383,9 +371,9 @@ def generate_aspect_instruction(sample_size=4, sample_rounds=1, question_generat
 
 def extend_instruction(postfix_instruction, train_dataset):
     q_extend = model.lm_search(train_dataset, token_length=400,
-                                    postfix_instruction=postfix_instruction,
-                                    stop_criterion='eos', stop_by_score=True, metric='ppl_score+acc',
-                                    top_p=0.9, regularization_label=0)
+                               postfix_instruction=postfix_instruction,
+                               stop_criterion='eos', stop_by_score=True, metric='ppl_score+acc',
+                               top_p=0.9, regularization_label=0)
     return postfix_instruction + q_extend
 
 
@@ -440,8 +428,8 @@ def instruction_train(instruction_dict_name='simple_instruction', extend=True, u
                                   save_dir=result_instruction_dir, extend=extend, show_top_k=10)
 
 
-def question_train(question_generation_key, sample_size='all', sample_rounds=1, extend=False):
-    question_dict = load_question_dict(question_generation_key, sample_size=sample_size, sample_rounds=sample_rounds)
+def question_train(question_generation_key, extend=False):
+    question_dict = load_question_dict(question_generation_key)
     # question_dict = dict(reversed(question_dict.items()))
     print(question_dict)
 
@@ -521,17 +509,11 @@ def main():
     standard_train(postfix_instruction=instruction)
 
     question_generation_key = 'diff'
-    sample_size = 'all'
-    sample_rounds = 1
-    print(question_generation_key, sample_size, sample_rounds)
-    generate_diff(sample_size=sample_size, sample_rounds=sample_rounds,
-                  question_generation_key=question_generation_key)
-    obtain_aspects(sample_size=sample_size, sample_rounds=sample_rounds,
-                   question_generation_key=question_generation_key)
-    generate_aspect_instruction(sample_size=sample_size, sample_rounds=sample_rounds,
-                                question_generation_key=question_generation_key)
-    question_train(sample_size=sample_size, sample_rounds=sample_rounds,
-                   question_generation_key=question_generation_key)
+    print(question_generation_key)
+    generate_diff(question_generation_key=question_generation_key)
+    obtain_aspects(question_generation_key=question_generation_key)
+    generate_aspect_instruction(question_generation_key=question_generation_key)
+    question_train(question_generation_key=question_generation_key)
 
     # instruction_dict_name = 'human_instruction'
     # instruction_dict_name = 'common_instruction'
